@@ -1,27 +1,40 @@
-import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
-    id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.intellij.platform")
-    id("org.jetbrains.changelog")
+    id("java")
+    id("org.jetbrains.kotlin.jvm") version "2.0.20" // 使用稍新的 Kotlin 版本
+    id("org.jetbrains.intellij.platform") version "2.2.1" // 升级到最新稳定版
+    id("org.jetbrains.intellij.platform.migration") version "2.2.1" // 添加迁移插件
+    id("org.jetbrains.changelog") version "2.2.1"
 }
 
-dependencies {
-    testImplementation("junit:junit:4.13.2")
-
-    // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
+repositories {
+    mavenCentral()
     intellijPlatform {
-        intellijIdea("2025.2.6.1")
-        testFramework(TestFrameworkType.Platform)
+        defaultRepositories()
     }
 }
 
-// Configure IntelliJ Platform Gradle Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html
+dependencies {
+    // 核心依赖: 使用 create 方法来指定目标 IDE 和版本
+    intellijPlatform {
+        create("IC", "2024.3.1") // 'IC' 代表 IntelliJ IDEA Community Edition
+        testFramework(TestFrameworkType.Platform)
+    }
+
+    // Gson for JSON parsing
+    implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Kotlin Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.3")
+
+    testImplementation("junit:junit:4.13.2")
+}
+
 intellijPlatform {
     pluginConfiguration {
-        // Extract the <!-- Plugin description --> section from README.md and provide for the plugin's manifest
         description = providers.fileContents(layout.projectDirectory.file("README.md")).asText.map {
             val start = "<!-- Plugin description -->"
             val end = "<!-- Plugin description end -->"
@@ -34,30 +47,21 @@ intellijPlatform {
             }
         }
 
-        val changelog = project.changelog // local variable for configuration cache compatibility
-        // Get the latest available change notes from the changelog file
+        val changelog = project.changelog
         changeNotes = version.map { pluginVersion ->
             with(changelog) {
                 renderItem(
                     (getOrNull(pluginVersion) ?: getUnreleased())
                         .withHeader(false)
                         .withEmptySections(false),
-                    Changelog.OutputType.HTML,
+                    org.jetbrains.changelog.Changelog.OutputType.HTML,
                 )
             }
         }
     }
 }
 
-// Configure Gradle Changelog Plugin - read more: https://github.com/JetBrains/gradle-changelog-plugin
 changelog {
     groups.empty()
-    repositoryUrl = providers.gradleProperty("pluginRepositoryUrl")
-    versionPrefix = ""
-}
-
-tasks {
-    publishPlugin {
-        dependsOn(patchChangelog)
-    }
+    versionPrefix.set("")
 }

@@ -1,15 +1,28 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.mcablylx.ideadeepseekplugin</id>
-    <name>idea-deepseek-plugin</name>
-    <vendor>mcablylx</vendor>
+    <name>DeepSeek AI Assistant</name>
+    <vendor email="your-email@example.com" url="https://github.com/mcablylx/idea-deepseek-plugin">mcablylx</vendor>
 
     <depends>com.intellij.modules.platform</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.mcablylx.ideadeepseekplugin.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.mcablylx.ideadeepseekplugin.startup.MyProjectActivity" />
+        <!-- 工具窗口 -->
+        <toolWindow factoryClass="com.github.mcablylx.ideadeepseekplugin.toolWindow.MyToolWindowFactory" 
+                    id="DeepSeek AI" 
+                    anchor="right"
+                    icon="/icons/deepseek.svg"/>
+        
+        <!-- 设置页面 -->
+        <applicationConfigurable parentId="tools" 
+                                 instance="com.github.mcablylx.ideadeepseekplugin.settings.DeepSeekSettingsConfigurable"
+                                 id="com.github.mcablylx.ideadeepseekplugin.settings.DeepSeekSettingsConfigurable"
+                                 displayName="DeepSeek AI"/>
+        
+        <!-- 应用级服务 -->
+        <applicationService serviceImplementation="com.github.mcablylx.ideadeepseekplugin.settings.DeepSeekSettings"/>
+        <applicationService serviceImplementation="com.github.mcablylx.ideadeepseekplugin.client.DeepSeekApiClient"/>
     </extensions>
 </idea-plugin>
