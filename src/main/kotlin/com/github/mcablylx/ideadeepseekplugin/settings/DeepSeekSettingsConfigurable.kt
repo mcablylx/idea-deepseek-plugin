@@ -95,11 +95,38 @@ class DeepSeekSettingsConfigurable : Configurable {
     }
 
     override fun apply() {
+        val temp = temperatureField.text.toDoubleOrNull()
+        if (temp == null || temp < 0.0 || temp > 2.0) {
+            com.intellij.openapi.ui.Messages.showWarningDialog(
+                "Temperature 必须在 0.0-2.0 之间",
+                "输入校验"
+            )
+            return
+        }
+
+        val tokens = maxTokensField.text.toIntOrNull()
+        if (tokens == null || tokens < 1 || tokens > 32768) {
+            com.intellij.openapi.ui.Messages.showWarningDialog(
+                "Max Tokens 必须在 1-32768 之间",
+                "输入校验"
+            )
+            return
+        }
+
+        val url = apiBaseUrlField.text.trim()
+        if (url.isBlank() || !url.startsWith("http")) {
+            com.intellij.openapi.ui.Messages.showWarningDialog(
+                "API Base URL 必须以 http 开头",
+                "输入校验"
+            )
+            return
+        }
+
         settings.apiKey = apiKeyField.text.trim()
-        settings.apiBaseUrl = apiBaseUrlField.text.trim()
+        settings.apiBaseUrl = url
         settings.modelName = (modelComboBox.selectedItem as? String ?: "deepseek-v4-flash").trim()
-        settings.temperature = temperatureField.text.toDoubleOrNull() ?: 0.7
-        settings.maxTokens = maxTokensField.text.toIntOrNull() ?: 4096
+        settings.temperature = temp
+        settings.maxTokens = tokens
         settings.systemPrompt = systemPromptField.text.trim()
     }
 

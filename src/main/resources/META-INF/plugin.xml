@@ -23,6 +23,71 @@
         
         <!-- 应用级服务 -->
         <applicationService serviceImplementation="com.github.mcablylx.ideadeepseekplugin.settings.DeepSeekSettings"/>
-        <applicationService serviceImplementation="com.github.mcablylx.ideadeepseekplugin.client.DeepSeekApiClient"/>
+        
+        <!-- 项目级服务 -->
+        <projectService serviceImplementation="com.github.mcablylx.ideadeepseekplugin.completion.DeepSeekCompletionService"/>
+        
+        <!-- 代码补全贡献者 -->
+        <completion.contributor language="any" implementationClass="com.github.mcablylx.ideadeepseekplugin.completion.DeepSeekCompletionContributor"/>
     </extensions>
+    
+    <!-- 动作和菜单 -->
+    <actions>
+        <!-- 右键菜单：解释代码 -->
+        <action id="DeepSeek.ExplainCode" 
+                class="com.github.mcablylx.ideadeepseekplugin.actions.ExplainCodeAction"
+                text="🤖 解释代码"
+                description="使用 AI 解释选中的代码">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
+        
+        <!-- 右键菜单：重构建议 -->
+        <action id="DeepSeek.RefactorSuggestion" 
+                class="com.github.mcablylx.ideadeepseekplugin.actions.RefactorSuggestionAction"
+                text="🔧 重构建议"
+                description="获取 AI 代码重构建议">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DeepSeek.ExplainCode"/>
+        </action>
+        
+        <!-- 快捷键：内联问答 -->
+        <action id="DeepSeek.InlineQuestion" 
+                class="com.github.mcablylx.ideadeepseekplugin.actions.InlineQuestionAction"
+                text="💬 AI 代码问答"
+                description="使用 AI 回答代码相关问题">
+            <keyboard-shortcut first-keystroke="ctrl shift Q" keymap="$default"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DeepSeek.RefactorSuggestion"/>
+        </action>
+        
+        <!-- 右键菜单：AI差异对比 -->
+        <action id="DeepSeek.AIDiff" 
+                class="com.github.mcablylx.ideadeepseekplugin.diff.AIDiffAction"
+                text="🔄 AI差异对比"
+                description="查看AI建议的代码修改对比">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DeepSeek.InlineQuestion"/>
+        </action>
+        
+        <!-- 右键菜单：生成单元测试 -->
+        <action id="DeepSeek.GenerateUnitTest" 
+                class="com.github.mcablylx.ideadeepseekplugin.actions.GenerateUnitTestAction"
+                text="🧪 生成单元测试"
+                description="为选中的代码生成单元测试">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="DeepSeek.AIDiff"/>
+        </action>
+        
+        <!-- 工具菜单：项目分析 -->
+        <action id="DeepSeek.ProjectAnalysis" 
+                class="com.github.mcablylx.ideadeepseekplugin.analysis.ProjectAnalysisAction"
+                text="📊 DeepSeek 项目分析"
+                description="分析整个项目结构并生成文档">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        
+        <!-- 工具菜单：依赖建议 -->
+        <action id="DeepSeek.DependencySuggestion" 
+                class="com.github.mcablylx.ideadeepseekplugin.actions.DependencySuggestionAction"
+                text="📦 DeepSeek 依赖建议"
+                description="分析项目依赖并提供优化建议">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>

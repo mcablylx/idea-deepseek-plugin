@@ -41,15 +41,17 @@ class DeepSeekApiClient {
             try {
                 connection.requestMethod = "POST"
                 connection.doOutput = true
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 30_000
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.setRequestProperty("Authorization", "Bearer ${settings.apiKey}")
-                
+
                 // 构建请求体
                 val requestBody = buildRequestBody(messages, settings)
                 connection.outputStream.use {
                     it.write(requestBody.toByteArray())
                 }
-                
+
                 // 读取流式响应
                 val fullResponse = StringBuilder()
                 if (connection.responseCode == HttpURLConnection.HTTP_OK) {
@@ -59,7 +61,7 @@ class DeepSeekApiClient {
                             if (line!!.startsWith("data: ")) {
                                 val data = line!!.substring(6)
                                 if (data == "[DONE]") break
-                                
+
                                 try {
                                     val json = gson.fromJson(data, JsonObject::class.java)
                                     val choices = json.getAsJsonArray("choices")
@@ -78,8 +80,10 @@ class DeepSeekApiClient {
                         }
                     }
                 } else {
-                    val errorResponse = BufferedReader(InputStreamReader(connection.errorStream)).readText()
-                    throw parseErrorResponse(errorResponse, connection.responseCode)
+                    val errorBody = connection.errorStream
+                        ?.let { BufferedReader(InputStreamReader(it)).readText() }
+                        ?: "HTTP ${connection.responseCode}"
+                    throw parseErrorResponse(errorBody, connection.responseCode)
                 }
                 
                 fullResponse.toString()
@@ -92,7 +96,7 @@ class DeepSeekApiClient {
     /**
      * 发送聊天请求并获取完整响应（非流式）
      */
-    suspend fun chat(messages: List<ChatMessage>): String {
+    suspend fun chatNonStream(messages: List<ChatMessage>): String {
         val settings = DeepSeekSettings.instance
         
         if (settings.apiKey.isBlank()) {
@@ -106,14 +110,16 @@ class DeepSeekApiClient {
             try {
                 connection.requestMethod = "POST"
                 connection.doOutput = true
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 30_000
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.setRequestProperty("Authorization", "Bearer ${settings.apiKey}")
-                
+
                 val requestBody = buildRequestBody(messages, settings, stream = false)
                 connection.outputStream.use {
                     it.write(requestBody.toByteArray())
                 }
-                
+
                 if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                     BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
                         val response = reader.readText()
@@ -127,8 +133,10 @@ class DeepSeekApiClient {
                         }
                     }
                 } else {
-                    val errorResponse = BufferedReader(InputStreamReader(connection.errorStream)).readText()
-                    throw parseErrorResponse(errorResponse, connection.responseCode)
+                    val errorBody = connection.errorStream
+                        ?.let { BufferedReader(InputStreamReader(it)).readText() }
+                        ?: "HTTP ${connection.responseCode}"
+                    throw parseErrorResponse(errorBody, connection.responseCode)
                 }
             } finally {
                 connection.disconnect()

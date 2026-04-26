@@ -7,7 +7,9 @@ import com.github.mcablylx.ideadeepseekplugin.settings.DeepSeekSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.JBColor
@@ -80,7 +82,6 @@ class MyToolWindowFactory : ToolWindowFactory {
         private val clearButton = JButton("清空")
         
         private val chatHistory = mutableListOf<ChatMessage>()
-        private var currentResponseArea: JTextArea? = null
         
         /**
          * 将 Color 对象转换为十六进制字符串（用于 HTML 样式）
@@ -165,7 +166,8 @@ class MyToolWindowFactory : ToolWindowFactory {
             
             // 添加用户消息
             addMessage("user", message)
-            chatHistory.add(ChatMessage("user", message))
+            val enrichedMessage = enrichMessageWithContext(message)
+            chatHistory.add(ChatMessage("user", enrichedMessage))
             inputField.text = ""
             
             // 禁用输入和发送按钮
@@ -179,24 +181,26 @@ class MyToolWindowFactory : ToolWindowFactory {
                 isEditable = false
                 background = null
             }
-            currentResponseArea = aiResponseArea
-            
+
             // 调用 API
             kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 try {
+                    var isFirstChunk = true
                     val fullResponse = apiClient.chatStream(chatHistory) { chunk ->
                         // 在 EDT 线程更新 UI
                         SwingUtilities.invokeLater {
+                            if (isFirstChunk) {
+                                // 第一个 chunk 到达时，把回复区域添加到聊天面板（逐步显示）
+                                addMessageComponent("assistant", aiResponseArea)
+                                isFirstChunk = false
+                            }
                             aiResponseArea.text = aiResponseArea.text + chunk
                             scrollToBottom()
                         }
                     }
-                    
-                    // 保存 AI 回复到历史，并添加到界面
+
+                    // 保存 AI 回复到历史
                     chatHistory.add(ChatMessage("assistant", fullResponse))
-                    SwingUtilities.invokeLater {
-                        addMessageComponent("assistant", aiResponseArea)
-                    }
                 } catch (e: Exception) {
                     thisLogger().error("调用 DeepSeek API 失败", e)
                     SwingUtilities.invokeLater {
@@ -486,6 +490,96 @@ class MyToolWindowFactory : ToolWindowFactory {
             addMessage("assistant", "您好！我是 DeepSeek AI 助手，有什么可以帮助您的吗？")
             messagesPanel.revalidate()
             messagesPanel.repaint()
+        }
+
+        // ─── Context enrichment ───────────────────────────────────────────────
+
+        private fun enrichMessageWithContext(message: String): String {
+            val lowerMessage = message.lowercase()
+            val needsProjectContext = listOf(
+                "项目", "分析", "结构", "架构", "依赖", "模块",
+                "project", "analyze", "structure", "architecture", "dependency",
+                "这个文件", "当前文件", "this file", "current file"
+            ).any { lowerMessage.contains(it) }
+
+            if (!needsProjectContext) return message
+
+            val contextInfo = buildProjectContext()
+            return if (contextInfo.isNotBlank()) {
+                "$message\n\n【当前项目上下文】\n$contextInfo"
+            } else {
+                message
+            }
+        }
+
+        private fun buildProjectContext(): String {
+            val sb = StringBuilder()
+            try {
+                sb.append("项目名称: ${project.name}\n")
+                val basePath = project.basePath
+                if (basePath != null) {
+                    sb.append("项目路径: $basePath\n")
+                }
+
+                val fileEditorManager = FileEditorManager.getInstance(project)
+                val currentFile = fileEditorManager.selectedEditor?.file
+                if (currentFile != null) {
+                    sb.append("\n当前打开文件: ${currentFile.name}\n")
+                    sb.append("文件路径: ${currentFile.path}\n")
+                    val editor = fileEditorManager.selectedTextEditor
+                    if (editor != null) {
+                        val selectionModel = editor.selectionModel
+                        if (selectionModel.hasSelection()) {
+                            val selectedCode = selectionModel.selectedText
+                            if (selectedCode != null && selectedCode.isNotBlank()) {
+                                val codePreview = if (selectedCode.length > 500) {
+                                    selectedCode.substring(0, 500) + "..."
+                                } else {
+                                    selectedCode
+                                }
+                                sb.append("\n选中的代码:\n```\n$codePreview\n```\n")
+                            }
+                        } else {
+                            sb.append("文件类型: ${currentFile.extension ?: "未知"}\n")
+                        }
+                    }
+                }
+
+                val projectDir = project.guessProjectDir()
+                if (projectDir != null) {
+                    sb.append("\n项目结构（前两层）:\n```")
+                    scanProjectStructure(projectDir, sb, "", 0, 2)
+                    sb.append("```\n")
+                }
+            } catch (e: Exception) {
+                thisLogger().warn("构建项目上下文失败: ${e.message}")
+            }
+            return sb.toString()
+        }
+
+        private fun scanProjectStructure(
+            dir: com.intellij.openapi.vfs.VirtualFile,
+            sb: StringBuilder,
+            prefix: String,
+            currentDepth: Int,
+            maxDepth: Int
+        ) {
+            if (currentDepth > maxDepth) return
+            val children = dir.children
+                .filter { !it.name.startsWith(".") }
+                .filter { it.name !in listOf("build", "target", "node_modules", ".gradle", ".idea", "out", "bin") }
+                .sortedBy { it.name }
+
+            for ((index, child) in children.withIndex()) {
+                val isLast = index == children.size - 1
+                val connector = if (isLast) "└── " else "├── "
+                sb.append("\n$prefix$connector${child.name}")
+                if (child.isDirectory) sb.append("/")
+                if (child.isDirectory && currentDepth < maxDepth) {
+                    val newPrefix = prefix + if (isLast) "    " else "│   "
+                    scanProjectStructure(child, sb, newPrefix, currentDepth + 1, maxDepth)
+                }
+            }
         }
     }
 }
