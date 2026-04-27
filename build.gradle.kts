@@ -4,7 +4,7 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.0.20" // 使用稍新的 Kotlin 版本
-    id("org.jetbrains.intellij.platform") version "2.2.1" // 升级到最新稳定版
+    id("org.jetbrains.intellij.platform") version "2.15.0" // 升级到最新稳定版
     id("org.jetbrains.intellij.platform.migration") version "2.2.1" // 添加迁移插件
     id("org.jetbrains.changelog") version "2.2.1"
 }
